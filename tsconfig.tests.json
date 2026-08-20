@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "types": ["node", "bun"]
+  },
+  "include": ["tests/**/*.ts", "lib/sub2api/**/*.ts", "lib/academic/**/*.ts"],
+  "exclude": ["node_modules"]
+}

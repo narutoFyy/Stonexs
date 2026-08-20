@@ -1,0 +1,18 @@
+[Unit]
+Description=Shitou Academic web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/shitou-academic/current
+ExecStartPre=-/usr/bin/docker rm -f shitou-academic-figures
+ExecStart=/usr/bin/docker run --rm --name shitou-academic-figures --network deploy_default -p 18083:18083 --env-file /opt/shitou-academic/.env -e PORT=18083 -e HOSTNAME=0.0.0.0 -e SCIENTIFIC_FIGURES_STORAGE_ROOT=/srv/xcard-uploads/scientific-figures -v /opt/shitou-academic/current:/app:ro -v /srv/xcard-uploads/scientific-figures:/srv/xcard-uploads/scientific-figures -w /app node:22-alpine node server.js
+ExecStop=/usr/bin/docker stop -t 10 shitou-academic-figures
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
