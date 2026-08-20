@@ -21,7 +21,9 @@ COPY . .
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
-RUN npm run build
+# Resend validates its API key during module evaluation while Next collects
+# route metadata. This build-only placeholder is not copied into the runner.
+RUN RESEND_API_KEY=re_build_placeholder npm run build
 
 # Stage 3: Production runtime
 # Final stage that runs the application
