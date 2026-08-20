@@ -1,11 +1,22 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ChartNoAxesCombined, Download, FileJson, LoaderCircle, PanelTop, Sparkles } from 'lucide-react';
+import {
+  Bot,
+  ChartNoAxesCombined,
+  Download,
+  FileJson,
+  LoaderCircle,
+  LogOut,
+  Orbit,
+  PanelTop,
+  Search,
+  Sparkles,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { SidebarLayout } from '@/components/sidebar-layout';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useUser } from '@/contexts/user-context';
+import { signOut } from '@/lib/auth-client';
 
 interface FigureJob {
   id: string;
@@ -20,7 +31,7 @@ interface FigureJob {
   completedAt?: string | null;
 }
 
-function FiguresContent() {
+function FiguresContent({ userName }: { userName: string }) {
   const [title, setTitle] = useState('科研方法流程图');
   const [idea, setIdea] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -43,6 +54,14 @@ function FiguresContent() {
     elementCount: number;
   } | null>(null);
 
+  async function ensureActiveSession() {
+    const response = await fetch('/api/auth/session', { cache: 'no-store' });
+    if (!response.ok || !(await response.json())) {
+      window.location.assign('/sign-in?redirect=/figures');
+      throw new Error('登录已过期，请重新登录');
+    }
+  }
+
   async function refinePrompt() {
     if (idea.trim().length < 10) {
       setError('请先写下至少 10 个字的论文方向和绘图想法');
@@ -51,6 +70,7 @@ function FiguresContent() {
     setPromptLoading(true);
     setError('');
     try {
+      await ensureActiveSession();
       const response = await fetch('/api/figures/prompt', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -113,6 +133,7 @@ function FiguresContent() {
     setError('');
     setResult(null);
     try {
+      await ensureActiveSession();
       const response = await fetch('/api/figures', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -145,10 +166,34 @@ function FiguresContent() {
   return (
     <main className="min-h-svh w-full bg-[#f3eedf] text-[#17242a]">
       <header className="flex h-16 items-center border-b border-[#d7bd7b]/30 bg-[#0b1822] px-6 text-[#f4eedf]">
-        <SidebarTrigger className="mr-3" />
-        <div>
-          <h1 className="text-base font-semibold">科研绘图</h1>
-          <p className="text-xs text-[#9fb0b5]">可编辑 SVG · scene.json · PNG 背景</p>
+        <Link href="/" className="flex items-center gap-2.5 font-serif text-lg">
+          <span className="flex h-8 w-8 items-center justify-center border border-[#d7bd7b]/55 text-[#d7bd7b]">
+            <Orbit className="h-4 w-4" />
+          </span>
+          石头学术
+        </Link>
+        <nav className="ml-10 flex h-full items-center gap-1 text-sm text-[#b9c5c8]" aria-label="工作台导航">
+          <Link href="/scholar" className="inline-flex h-9 items-center gap-2 px-3 hover:text-white">
+            <Search className="h-4 w-4" /> 文献搜索
+          </Link>
+          <span className="inline-flex h-9 items-center gap-2 border-b border-[#d7bd7b] px-3 text-white">
+            <ChartNoAxesCombined className="h-4 w-4" /> 科研绘图
+          </span>
+          <Link href="/assistant" className="inline-flex h-9 items-center gap-2 px-3 hover:text-white">
+            <Bot className="h-4 w-4" /> AI 助手
+          </Link>
+        </nav>
+        <div className="ml-auto flex items-center gap-3 text-xs text-[#9fb0b5]">
+          <span className="max-w-48 truncate">{userName}</span>
+          <button
+            type="button"
+            title="退出登录"
+            aria-label="退出登录"
+            className="flex h-8 w-8 items-center justify-center border border-[#d7bd7b]/30 hover:border-[#d7bd7b] hover:text-white"
+            onClick={() => void signOut().then(() => window.location.assign('/sign-in?redirect=/figures'))}
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </header>
       <section className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_340px] gap-10 px-6 py-10">
@@ -353,9 +398,5 @@ export default function FiguresPage() {
     if (!isLoading && !user) router.push('/sign-in?redirect=/figures');
   }, [isLoading, router, user]);
   if (isLoading || !user) return null;
-  return (
-    <SidebarLayout>
-      <FiguresContent />
-    </SidebarLayout>
-  );
+  return <FiguresContent userName={user.email || user.name || '已登录'} />;
 }

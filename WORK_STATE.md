@@ -6,7 +6,7 @@
 
 ## Current Task
 
-`T7B` - Production deployment remains paused and outside the scope of the completed product changes.
+`T14` - Repair the production sign-in-to-figures workflow and Linux scientific-figure runtime.
 
 ## Rules
 
@@ -35,6 +35,7 @@
 | T11 | Generic scientific figure workflow | done | Generic presets, prompt copy, and individual PNG/SVG/JSON/ZIP downloads over the existing my-image-sci pipeline. |
 | T12 | AI-assisted scientific figure workflow | done | Authenticated prompt-polish API plus a two-step UI from short research idea to editable figure bundle. |
 | T13 | Deploy figure workflow to .189:18083 | blocked | SSH is available and port 18083 is free; deployment awaits production environment values for database, AI providers, and R2 storage. |
+| T14 | Stabilize figure authentication and Linux deployment | implementing | Login redirects directly to `/figures`; the page does not load the legacy AI/chat action graph; Linux-native dependencies and my-image-sci scripts are present; existing services remain healthy. |
 
 ## Completed Task
 
@@ -69,9 +70,19 @@
 
 ## Active Task
 
-### T7B
+### T14
 
-- Production deployment remains paused pending the previously recorded domain and R2 configuration.
+- Purpose: repair the confirmed production failure after login and make the existing scientific-figure workflow runnable on `.189`.
+- Exact work: decouple `/figures` from the legacy chat sidebar, keep authentication on the same Sub2API session contract, refresh expired access sessions through the auth endpoint, package the existing `my-image-sci` scripts into the runtime, and rebuild once on matching Linux/Alpine.
+- Allowed read/write: `app/figures/page.tsx`, `app/api/auth/[...all]/route.ts`, `lib/auth.ts`, `proxy.ts`, `env/server.ts`, `env/client.ts`, `next.config.ts`, `Dockerfile`, `.dockerignore`, `deploy/shitou-academic-figures.service`, deployment/release files required for `.189`, focused tests, and `WORK_STATE.md`.
+- Non-goals: changing Sub2API, balances, paper search/delivery, gift-chat, Cloudflare routing, database schemas, or rebuilding the my-image-sci generation logic.
+- Reuse source: existing Sub2API adapter and existing `my-image-sci` scripts.
+- Adoption action: integrate them through a lightweight figure shell, session adapter, and runtime mount; preserve the skill's PNG/scene JSON/SVG/preview/ZIP output contract.
+- Custom-code boundary: auth glue, figure-page composition, deployment configuration, and focused tests only.
+- Acceptance: `/sign-in?redirect=/figures` establishes a cookie and lands on `/figures`; `/figures` renders without loading Baseten/chat server actions; Linux runtime resolves `sharp`; configured my-image-sci scripts exist inside the container; current production services remain healthy.
+- Focused verification: app/test typechecks, focused auth/figure tests, dependency graph inspection, Linux module/script probes, unauthenticated redirect/API checks, authenticated flow where credentials are available, service/log/resource checks, and release rollback preservation.
+- Dependencies: existing `.128` PostgreSQL, local `.189` Sub2API, user-provided image API credentials at request time, and existing data-disk mount.
+- Rollback: restore the previous `/opt/shitou-academic/current` symlink and service unit; no database or persistent-user-data rollback required.
 
 ## File Access Requests
 
@@ -100,3 +111,4 @@ Not applicable in `state-main` mode.
 - 2026-08-19: `T11` replaced the automatic-driving figure defaults with generic research presets and exposed individual figure assets alongside the editable ZIP; typecheck and production build passed. Bun-based focused tests remain unavailable because Bun is not installed on this workstation.
 - 2026-08-19: `T12` added authenticated `/api/figures/prompt`; the language model now turns a short research idea into a title, no-text background prompt, and three editable nodes before image generation. Typecheck and production build passed.
 - 2026-08-19: `T13` SSH login to `.189` succeeded and port `18083` was free. The host has Sub2API configuration but no application environment or R2/my-image deployment configuration; no remote files or services were changed.
+- 2026-08-20: user resumed deployment repair; production logs proved Windows-native optional dependencies were shipped into Linux/Alpine, `/figures` loaded the legacy chat action graph and Baseten provider, and the configured my-image-sci directory was absent inside the container. `T14` moved `pending -> ready -> implementing`.

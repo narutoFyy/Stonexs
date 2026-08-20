@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 
 export const serverEnv = createEnv({
+  skipValidation: process.env.SKIP_ENV_VALIDATION === '1',
   server: {
     XAI_API_KEY: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),

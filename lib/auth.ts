@@ -47,16 +47,29 @@ async function getSession(input: SessionInput) {
 
   try {
     const remoteUser = await getCurrentSub2ApiUser(accessToken);
-    const mirroredUser = await mirrorUser(remoteUser);
-    if (!mirroredUser) return null;
+    let mirroredUser: Awaited<ReturnType<typeof mirrorUser>> | null = null;
+    try {
+      mirroredUser = await mirrorUser(remoteUser);
+    } catch (error) {
+      console.error('[auth] local user mirror failed', error);
+    }
+    const sessionUser = mirroredUser || {
+      id: String(remoteUser.id),
+      name: remoteUser.username || remoteUser.email,
+      email: remoteUser.email,
+      emailVerified: true,
+      image: remoteUser.avatar_url || null,
+      createdAt: new Date(remoteUser.created_at),
+      updatedAt: new Date(remoteUser.updated_at),
+    };
 
     return {
       session: {
         id: `sub2api:${remoteUser.id}`,
-        userId: mirroredUser.id,
+        userId: sessionUser.id,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000),
       },
-      user: mirroredUser,
+      user: sessionUser,
       wallet: {
         balance: remoteUser.balance,
         frozenBalance: remoteUser.frozen_balance || 0,

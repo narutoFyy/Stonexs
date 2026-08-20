@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, readCookie } from '@/lib/sub2api/cookies';
 
-const protectedRoutes = ['/settings', '/searches'];
+const protectedRoutes = ['/settings', '/searches', '/figures', '/downloads'];
+
+function signInRedirect(request: NextRequest) {
+  const url = new URL('/sign-in', request.url);
+  url.searchParams.set('redirect', `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  return NextResponse.redirect(url);
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -20,7 +26,7 @@ export async function proxy(request: NextRequest) {
   // Allow /settings as a real page; still protect it behind auth
   if (pathname === '/settings') {
     if (!sessionCookie) {
-      return NextResponse.redirect(new URL('/sign-in', request.url));
+      return signInRedirect(request);
     }
     return NextResponse.next();
   }
@@ -29,7 +35,7 @@ export async function proxy(request: NextRequest) {
   // login endpoint is the source of truth and can replace an expired token.
 
   if (!sessionCookie && protectedRoutes.some((route) => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
+    return signInRedirect(request);
   }
 
   return NextResponse.next();
