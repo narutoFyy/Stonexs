@@ -40,7 +40,7 @@ function setAuthCookies(response: NextResponse, tokens: Sub2ApiAuthTokens) {
       httpOnly: true,
       sameSite: 'lax',
       secure,
-      path: '/api/auth',
+      path: '/',
       maxAge: 30 * 24 * 60 * 60,
     });
   }
@@ -48,7 +48,23 @@ function setAuthCookies(response: NextResponse, tokens: Sub2ApiAuthTokens) {
 
 function clearAuthCookies(response: NextResponse) {
   response.cookies.set(ACCESS_COOKIE, '', { httpOnly: true, path: '/', maxAge: 0 });
+  response.cookies.set(REFRESH_COOKIE, '', { httpOnly: true, path: '/', maxAge: 0 });
+  // Remove refresh cookies issued by the earlier path-scoped deployment.
   response.cookies.set(REFRESH_COOKIE, '', { httpOnly: true, path: '/api/auth', maxAge: 0 });
+}
+
+function sessionPayload(remoteUser: Awaited<ReturnType<typeof getCurrentSub2ApiUser>>) {
+  return {
+    session: { id: `sub2api:${remoteUser.id}`, userId: String(remoteUser.id) },
+    user: {
+      id: String(remoteUser.id),
+      name: remoteUser.username || remoteUser.email,
+      email: remoteUser.email,
+      emailVerified: true,
+      image: remoteUser.avatar_url || null,
+    },
+    wallet: { balance: remoteUser.balance, frozenBalance: remoteUser.frozen_balance || 0 },
+  };
 }
 
 async function readBody(request: NextRequest) {
@@ -68,23 +84,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const accessToken = readCookie(request.headers.get('cookie'), ACCESS_COOKIE);
-  if (!accessToken) return NextResponse.json(null, { status: 200 });
+  const refreshToken = readCookie(request.headers.get('cookie'), REFRESH_COOKIE);
+  if (!accessToken && !refreshToken) return NextResponse.json(null, { status: 200 });
 
   try {
+    if (!accessToken) throw new Sub2ApiError('登录已过期', 401);
     const remoteUser = await getCurrentSub2ApiUser(accessToken);
-    const session = {
-      session: { id: `sub2api:${remoteUser.id}`, userId: String(remoteUser.id) },
-      user: {
-        id: String(remoteUser.id),
-        name: remoteUser.username || remoteUser.email,
-        email: remoteUser.email,
-        emailVerified: true,
-        image: remoteUser.avatar_url || null,
-      },
-      wallet: { balance: remoteUser.balance, frozenBalance: remoteUser.frozen_balance || 0 },
-    };
+    const session = sessionPayload(remoteUser);
     return NextResponse.json(action === 'me' ? remoteUser : session);
   } catch (error) {
+    if (refreshToken && error instanceof Sub2ApiError && error.status === 401) {
+      try {
+        const tokens = await refreshAccessToken(refreshToken);
+        const response = NextResponse.json(action === 'me' ? tokens.user : sessionPayload(tokens.user));
+        setAuthCookies(response, tokens);
+        return response;
+      } catch (refreshError) {
+        const response = errorResponse(refreshError);
+        clearAuthCookies(response);
+        return response;
+      }
+    }
     const response = errorResponse(error);
     if (error instanceof Sub2ApiError && error.status === 401) clearAuthCookies(response);
     return response;

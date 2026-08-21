@@ -80,14 +80,23 @@ export async function generateScientificFigure(input: GenerateScientificFigureIn
     const buildSceneScript = path.join(skillDir, 'scripts', 'build-scene.mjs');
     const prompt = scientificBackgroundPrompt(input.backgroundPrompt);
     const imageConfigPath = path.join(tempRoot, 'my-image.env');
+    const normalizedBaseUrl = input.imageBaseUrl?.trim().replace(/\/+$/, '');
     if (input.imageApiKey && input.imageBaseUrl) {
-      const normalizedBaseUrl = input.imageBaseUrl.trim().replace(/\/+$/, '');
       await writeFile(
         imageConfigPath,
         `OPENAI_BASE_URL=${JSON.stringify(normalizedBaseUrl)}\nOPENAI_API_KEY=${JSON.stringify(input.imageApiKey)}\nIMAGE_MODEL=${JSON.stringify(input.imageModel || 'gpt-image-2')}\n`,
         { encoding: 'utf8', mode: 0o600 },
       );
     }
+    const generatorEnv = input.imageApiKey && input.imageBaseUrl
+      ? {
+          ...process.env,
+          MY_IMAGE_GEN_ENV_FILE: imageConfigPath,
+          OPENAI_BASE_URL: normalizedBaseUrl,
+          OPENAI_API_KEY: input.imageApiKey,
+          IMAGE_MODEL: input.imageModel || 'gpt-image-2',
+        }
+      : process.env;
     const { stdout } = await execFileAsync(process.execPath, [
       generateScript,
       '--prompt', prompt,
@@ -98,9 +107,7 @@ export async function generateScientificFigure(input: GenerateScientificFigureIn
     ], {
       timeout: 330_000,
       maxBuffer: 1024 * 1024,
-      env: input.imageApiKey && input.imageBaseUrl
-        ? { ...process.env, MY_IMAGE_GEN_ENV_FILE: imageConfigPath }
-        : process.env,
+      env: generatorEnv,
     });
     const generatedPath = parseGeneratorOutput(stdout);
     await sharp(generatedPath).png().toFile(backgroundPath);

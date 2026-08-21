@@ -6,7 +6,7 @@
 
 ## Current Task
 
-`T7B` - Production deployment remains paused and outside the scope of the completed product changes.
+Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then verify the Linux container and public route.
 
 ## Rules
 
@@ -28,13 +28,15 @@
 | T4 | Add Dotaindex and 673 adapters | done | Independent flags; neither affects the primary search path. |
 | T5 | Add paid delivery | done | PDF validation plus at-most-once CNY 1 debit and eventual refund/delivery. |
 | T6 | Add scientific figures | done | User-isolated editable figure bundles are generated and downloadable. |
-| T7 | Brand, redesign, and deploy | implementing | Initial Swiss research UI is verified; production deployment remains pending. |
+| T7 | Brand, redesign, and deploy | done | Initial Swiss research UI is verified and deployed. |
 | T8 | 石头学术 astronomical visual redesign | done | Original generated background, adopted Magic UI effects, unified desktop pages, and focused browser QA. |
 | T9 | Direct scholarly search experience | done | Dotaindex-style `q` URL search, direct mixed provider results, and AI as a secondary assistant. |
 | T10 | 90tsg English database entry | done | Configurable same-origin redirect to the verified English database entry; no credentials or cookies persisted. |
 | T11 | Generic scientific figure workflow | done | Generic presets, prompt copy, and individual PNG/SVG/JSON/ZIP downloads over the existing my-image-sci pipeline. |
 | T12 | AI-assisted scientific figure workflow | done | Authenticated prompt-polish API plus a two-step UI from short research idea to editable figure bundle. |
-| T13 | Deploy figure workflow to .189:18083 | blocked | SSH is available and port 18083 is free; deployment awaits production environment values for database, AI providers, and R2 storage. |
+| T13 | Deploy figure workflow to .189:18083 | done | The verified image is deployed on `.189:18083` with the existing Sub2API environment and data-disk storage. |
+| T14 | Stabilize figure authentication and Linux deployment | done | Login redirects directly to `/figures`; the page does not load the legacy AI/chat action graph; Linux-native dependencies and my-image-sci scripts are present; existing services remain healthy. |
+| T15 | Deploy built-in SCI figure prompt | in_progress | The fixed SCI style prompt is committed, pushed, rebuilt in a Linux container, and verified on `.189:18083`. |
 
 ## Completed Task
 
@@ -69,9 +71,31 @@
 
 ## Active Task
 
-### T7B
+### T14
 
-- Production deployment remains paused pending the previously recorded domain and R2 configuration.
+- Purpose: repair the confirmed production failure after login and make the existing scientific-figure workflow runnable on `.189`.
+- Exact work: decouple `/figures` from the legacy chat sidebar, keep authentication on the same Sub2API session contract, refresh expired access sessions through the auth endpoint, package the existing `my-image-sci` scripts into the runtime, and rebuild once on matching Linux/Alpine.
+- Allowed read/write: `app/figures/page.tsx`, `app/api/auth/[...all]/route.ts`, `lib/auth.ts`, `proxy.ts`, `env/server.ts`, `env/client.ts`, `next.config.ts`, `Dockerfile`, `.dockerignore`, `deploy/shitou-academic-figures.service`, deployment/release files required for `.189`, focused tests, and `WORK_STATE.md`.
+- Non-goals: changing Sub2API, balances, paper search/delivery, gift-chat, Cloudflare routing, database schemas, or rebuilding the my-image-sci generation logic.
+- Reuse source: existing Sub2API adapter and existing `my-image-sci` scripts.
+- Adoption action: integrate them through a lightweight figure shell, session adapter, and runtime mount; preserve the skill's PNG/scene JSON/SVG/preview/ZIP output contract.
+- Custom-code boundary: auth glue, figure-page composition, deployment configuration, and focused tests only.
+- Acceptance: `/sign-in?redirect=/figures` establishes a cookie and lands on `/figures`; `/figures` renders without loading Baseten/chat server actions; Linux runtime resolves `sharp`; configured my-image-sci scripts exist inside the container; current production services remain healthy.
+- Focused verification: app/test typechecks, focused auth/figure tests, dependency graph inspection, Linux module/script probes, unauthenticated redirect/API checks, authenticated flow where credentials are available, service/log/resource checks, and release rollback preservation.
+- Dependencies: existing `.128` PostgreSQL, local `.189` Sub2API, user-provided image API credentials at request time, and existing data-disk mount.
+- Rollback: restore the previous `/opt/shitou-academic/current` symlink and service unit; no database or persistent-user-data rollback required.
+
+## Active Task
+
+### T15
+
+- Purpose: deploy the fixed SCI figure background prompt without changing the existing account, balance, image-provider, or SVG contracts.
+- Exact work: commit the current scientific-figure prompt, provider configuration, shared-balance, Linux runtime, and focused-test changes; push `graduate-workflow` to GitHub; build and restart `shitou-academic-figures` on `.189:18083` from the pushed source.
+- Allowed read/write: the current repository working tree, GitHub branch `graduate-workflow`, `/opt/shitou-academic` deployment files required by the existing service, and `WORK_STATE.md`.
+- Non-goals: database migrations, balance changes, Sub2API changes, Cloudflare routing, gift-chat, or Windows-only deployment artifacts.
+- Acceptance: GitHub contains the deployment commit; the Linux image builds without Windows native modules; the service remains active on `.189:18083`; `/figures` redirects anonymously; `/api/figures/prompt` remains protected; the fixed SCI prompt is present in the deployed image.
+- Focused verification: local typechecks/build, GitHub push confirmation, remote image digest and service status, direct HTTP route probes, and container log/resource checks.
+- Rollback: restore the previous `shitou-academic:production` image and restart `shitou-academic-figures`; no database or persistent-user-data rollback required.
 
 ## File Access Requests
 
@@ -100,3 +124,6 @@ Not applicable in `state-main` mode.
 - 2026-08-19: `T11` replaced the automatic-driving figure defaults with generic research presets and exposed individual figure assets alongside the editable ZIP; typecheck and production build passed. Bun-based focused tests remain unavailable because Bun is not installed on this workstation.
 - 2026-08-19: `T12` added authenticated `/api/figures/prompt`; the language model now turns a short research idea into a title, no-text background prompt, and three editable nodes before image generation. Typecheck and production build passed.
 - 2026-08-19: `T13` SSH login to `.189` succeeded and port `18083` was free. The host has Sub2API configuration but no application environment or R2/my-image deployment configuration; no remote files or services were changed.
+- 2026-08-20: user resumed deployment repair; production logs proved Windows-native optional dependencies were shipped into Linux/Alpine, `/figures` loaded the legacy chat action graph and Baseten provider, and the configured my-image-sci directory was absent inside the container. `T14` moved `pending -> ready -> implementing`.
+- 2026-08-21: Linux/Alpine image `a5fa0f2d4371` built successfully with resource limits and build-only provider placeholders. Candidate checks proved `sharp`, the `my-image-sci` mount, storage writes, unauthenticated redirects, and API authorization behavior.
+- 2026-08-21: production switched to `shitou-academic:production` on `.189:18083`; public `/figures` returns `307` to `/sign-in?redirect=%2Ffigures`, Sub2API and gift-chat remained active, and target logs contained no native-module or OOM errors. `T7`, `T13`, and `T14` moved to `done`; work status moved to `complete`.

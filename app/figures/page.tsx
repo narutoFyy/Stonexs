@@ -1,11 +1,22 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ChartNoAxesCombined, Download, FileJson, LoaderCircle, PanelTop, Sparkles } from 'lucide-react';
+import {
+  Bot,
+  ChartNoAxesCombined,
+  Download,
+  FileJson,
+  LoaderCircle,
+  LogOut,
+  Orbit,
+  PanelTop,
+  Search,
+  Sparkles,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { SidebarLayout } from '@/components/sidebar-layout';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useUser } from '@/contexts/user-context';
+import { signOut } from '@/lib/auth-client';
 
 interface FigureJob {
   id: string;
@@ -20,13 +31,25 @@ interface FigureJob {
   completedAt?: string | null;
 }
 
-function FiguresContent() {
+async function readFigureJson<T>(response: Response): Promise<T> {
+  const body = await response.text();
+  const contentType = response.headers.get('content-type') || '';
+  if (!body) {
+    return {} as T;
+  }
+  if (!contentType.toLowerCase().includes('json')) {
+    throw new Error(response.ok ? '服务器返回了无效响应，请稍后重试' : `绘图服务暂时不可用（HTTP ${response.status}）`);
+  }
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throw new Error(response.ok ? '服务器返回了无效响应，请稍后重试' : `绘图服务暂时不可用（HTTP ${response.status}）`);
+  }
+}
+
+function FiguresContent({ userName }: { userName: string }) {
   const [title, setTitle] = useState('科研方法流程图');
   const [idea, setIdea] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [languageModel, setLanguageModel] = useState('gpt-4.1-mini');
-  const [imageModel, setImageModel] = useState('gpt-image-2');
   const [backgroundPrompt, setBackgroundPrompt] = useState(
     '表现研究问题、方法设计、数据分析和实验验证之间关系的通用科研场景，包含抽象实验装置、数据纹理和清晰的空间层次',
   );
@@ -43,6 +66,20 @@ function FiguresContent() {
     elementCount: number;
   } | null>(null);
 
+  async function ensureActiveSession() {
+    const response = await fetch('/api/auth/session', { cache: 'no-store' });
+    let session: unknown = null;
+    try {
+      session = await readFigureJson<{ user?: unknown }>(response);
+    } catch {
+      session = null;
+    }
+    if (!response.ok || !session) {
+      window.location.assign('/sign-in?redirect=/figures');
+      throw new Error('登录已过期，请重新登录');
+    }
+  }
+
   async function refinePrompt() {
     if (idea.trim().length < 10) {
       setError('请先写下至少 10 个字的论文方向和绘图想法');
@@ -51,17 +88,18 @@ function FiguresContent() {
     setPromptLoading(true);
     setError('');
     try {
+      await ensureActiveSession();
       const response = await fetch('/api/figures/prompt', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ idea, baseUrl, apiKey, languageModel }),
+        body: JSON.stringify({ idea }),
       });
-      const payload = (await response.json()) as {
+      const payload = await readFigureJson<{
         title?: string;
         backgroundPrompt?: string;
         stageLabels?: string[];
         error?: string;
-      };
+      }>(response);
       if (!response.ok || !payload.title || !payload.backgroundPrompt || payload.stageLabels?.length !== 3) {
         throw new Error(payload.error || '提示词润色失败');
       }
@@ -97,10 +135,14 @@ function FiguresContent() {
   ];
 
   const loadJobs = useCallback(async () => {
-    const response = await fetch('/api/figures', { cache: 'no-store' });
-    if (!response.ok) return;
-    const payload = (await response.json()) as { jobs?: FigureJob[] };
-    setJobs(payload.jobs || []);
+    try {
+      const response = await fetch('/api/figures', { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await readFigureJson<{ jobs?: FigureJob[] }>(response);
+      setJobs(payload.jobs || []);
+    } catch {
+      // A history refresh must not replace the generation error with an unhandled rejection.
+    }
   }, []);
 
   useEffect(() => {
@@ -113,18 +155,19 @@ function FiguresContent() {
     setError('');
     setResult(null);
     try {
+      await ensureActiveSession();
       const response = await fetch('/api/figures', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title, backgroundPrompt, stageLabels: stages, size, baseUrl, apiKey, imageModel }),
+        body: JSON.stringify({ title, backgroundPrompt, stageLabels: stages, size }),
       });
-      const payload = (await response.json()) as {
+      const payload = await readFigureJson<{
         previewUrl?: string;
         bundleUrl?: string;
         jobId?: string;
         elementCount?: number;
         error?: string;
-      };
+      }>(response);
       if (!response.ok || !payload.previewUrl || !payload.bundleUrl || !payload.jobId)
         throw new Error(payload.error || '科研绘图生成失败');
       setResult({
@@ -145,10 +188,34 @@ function FiguresContent() {
   return (
     <main className="min-h-svh w-full bg-[#f3eedf] text-[#17242a]">
       <header className="flex h-16 items-center border-b border-[#d7bd7b]/30 bg-[#0b1822] px-6 text-[#f4eedf]">
-        <SidebarTrigger className="mr-3" />
-        <div>
-          <h1 className="text-base font-semibold">科研绘图</h1>
-          <p className="text-xs text-[#9fb0b5]">可编辑 SVG · scene.json · PNG 背景</p>
+        <Link href="/" className="flex items-center gap-2.5 font-serif text-lg">
+          <span className="flex h-8 w-8 items-center justify-center border border-[#d7bd7b]/55 text-[#d7bd7b]">
+            <Orbit className="h-4 w-4" />
+          </span>
+          石头学术
+        </Link>
+        <nav className="ml-10 flex h-full items-center gap-1 text-sm text-[#b9c5c8]" aria-label="工作台导航">
+          <Link href="/scholar" className="inline-flex h-9 items-center gap-2 px-3 hover:text-white">
+            <Search className="h-4 w-4" /> 文献搜索
+          </Link>
+          <span className="inline-flex h-9 items-center gap-2 border-b border-[#d7bd7b] px-3 text-white">
+            <ChartNoAxesCombined className="h-4 w-4" /> 科研绘图
+          </span>
+          <Link href="/assistant" className="inline-flex h-9 items-center gap-2 px-3 hover:text-white">
+            <Bot className="h-4 w-4" /> AI 助手
+          </Link>
+        </nav>
+        <div className="ml-auto flex items-center gap-3 text-xs text-[#9fb0b5]">
+          <span className="max-w-48 truncate">{userName}</span>
+          <button
+            type="button"
+            title="退出登录"
+            aria-label="退出登录"
+            className="flex h-8 w-8 items-center justify-center border border-[#d7bd7b]/30 hover:border-[#d7bd7b] hover:text-white"
+            onClick={() => void signOut().then(() => window.location.assign('/sign-in?redirect=/figures'))}
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </header>
       <section className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_340px] gap-10 px-6 py-10">
@@ -204,10 +271,7 @@ function FiguresContent() {
               maxLength={2000}
             />
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="中转站 Base URL，例如 https://api.example.com/v1" className="h-10 rounded-md border border-[#aa9f82] bg-[#fffaf0] px-3 text-xs outline-none focus:border-[#1f6f78]" />
-              <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" placeholder="中转站 API Key（仅本次使用）" className="h-10 rounded-md border border-[#aa9f82] bg-[#fffaf0] px-3 text-xs outline-none focus:border-[#1f6f78]" />
-              <input value={languageModel} onChange={(event) => setLanguageModel(event.target.value)} placeholder="语言模型，例如 gpt-4.1-mini" className="h-10 rounded-md border border-[#aa9f82] bg-[#fffaf0] px-3 text-xs outline-none focus:border-[#1f6f78]" />
-              <input value={imageModel} onChange={(event) => setImageModel(event.target.value)} placeholder="生图模型，例如 gpt-image-2" className="h-10 rounded-md border border-[#aa9f82] bg-[#fffaf0] px-3 text-xs outline-none focus:border-[#1f6f78]" />
+              <p className="text-xs leading-5 text-[#68777b] md:col-span-2">平台统一使用管理员配置的模型 Key，登录后直接生成；每张成功生成的图片扣除 1 余额。</p>
             </div>
           </div>
           <form onSubmit={submit} className="space-y-6">
@@ -222,7 +286,7 @@ function FiguresContent() {
               />
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium">AI 润色后的无文字底图提示词</span>
+              <span className="mb-2 block text-sm font-medium">AI 润色后的无文字底图提示词（确认后再生成）</span>
               <textarea
                 value={backgroundPrompt}
                 onChange={(event) => setBackgroundPrompt(event.target.value)}
@@ -353,9 +417,5 @@ export default function FiguresPage() {
     if (!isLoading && !user) router.push('/sign-in?redirect=/figures');
   }, [isLoading, router, user]);
   if (isLoading || !user) return null;
-  return (
-    <SidebarLayout>
-      <FiguresContent />
-    </SidebarLayout>
-  );
+  return <FiguresContent userName={user.email || user.name || '已登录'} />;
 }

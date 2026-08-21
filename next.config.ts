@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
   },
   reactCompiler: true,
   experimental: {
+    cpus: 2,
     webpackMemoryOptimizations: true,
     turbopackFileSystemCacheForDev: true,
     turbopackFileSystemCacheForBuild: true,

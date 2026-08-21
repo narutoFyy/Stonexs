@@ -4,9 +4,11 @@ import { z } from 'zod';
 
 
 export const serverEnv = createEnv({
+  skipValidation: process.env.SKIP_ENV_VALIDATION === '1',
   server: {
     XAI_API_KEY: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
+    OPENAI_BASE_URL: z.string().url().optional(),
     // ANTHROPIC_API_KEY: z.string().min(1),
     GROQ_API_KEY: z.string().min(1),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
@@ -61,6 +63,7 @@ export const serverEnv = createEnv({
     UPSTASH_BOX_API_KEY: z.string().optional(),
     SUB2API_BASE_URL: z.string().url().optional().default('http://127.0.0.1:18080'),
     SUB2API_ADMIN_API_KEY: z.string().optional(),
+    SUB2API_DATABASE_URL: z.string().url().optional(),
     OPENALEX_MAILTO: z.string().email().optional(),
     SEMANTIC_SCHOLAR_API_KEY: z.string().optional(),
     ACADEMIC_SEMANTIC_SCHOLAR: z.enum(['true', 'false']).optional().default('false'),
@@ -79,6 +82,12 @@ export const serverEnv = createEnv({
     R2_PUBLIC_URL: z.string().url().optional(),
     MY_IMAGE_SCI_SKILL_DIR: z.string().optional(),
     MY_IMAGE_GEN_ENV_FILE: z.string().optional(),
+    SCIENTIFIC_FIGURES_BASE_URL: z.string().url().optional(),
+    SCIENTIFIC_FIGURES_API_KEY: z.string().optional(),
+    SCIENTIFIC_FIGURES_LANGUAGE_API_KEY: z.string().optional(),
+    SCIENTIFIC_FIGURES_IMAGE_API_KEY: z.string().optional(),
+    SCIENTIFIC_FIGURES_IMAGE_MODEL: z.string().optional().default('gpt-image-2'),
+    SCIENTIFIC_FIGURES_LANGUAGE_MODEL: z.string().optional().default('gpt-5.6-sol'),
     TSG_ENGLISH_DATABASE_ENTRY_URL: z.string().url().optional(),
   },
   experimental__runtimeEnv: process.env,

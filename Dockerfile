@@ -3,45 +3,43 @@
 # Base image: Using Node.js 22 with Alpine Linux for a minimal footprint
 FROM node:22-alpine AS base
 
-# Stage 1: Dependencies
-# This stage is responsible for installing all npm dependencies
-FROM base AS deps
-# Installing libc6-compat for Alpine Linux compatibility with certain Node.js packages
-# Required for some npm packages that have native dependencies
-RUN apk add --no-cache libc6-compat
-
+# Install dependencies on the same Linux/musl platform used in production.
+FROM oven/bun:1.3.10-alpine AS deps
 WORKDIR /app
 
-# Copy package files and install dependencies using pnpm
-# pnpm is used for faster and more efficient package management
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable pnpm && pnpm i;
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-# Stage 2: Building the application
-# This stage builds the Next.js application
 FROM base AS builder
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 # Copy all source files
 COPY . .
-# Copy environment variables for build configuration
-COPY .env .env
-# Build the Next.js application
-RUN npm run build
+# The production environment is injected only when the container starts.
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV SKIP_ENV_VALIDATION=1
+# Some inherited Scira routes initialize third-party clients while Next collects
+# route metadata. These non-secret placeholders exist only in the builder stage.
+RUN set -a && . ./deploy/build.env && set +a && npm run build
 
 # Stage 3: Production runtime
 # Final stage that runs the application
 FROM base AS runner
-LABEL org.opencontainers.image.name="scira.app"
+LABEL org.opencontainers.image.name="shitou-academic"
 WORKDIR /app
 
 # Set production environment
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create a non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN apk add --no-cache libc6-compat fontconfig font-noto-cjk \
+  && addgroup -g 1001 -S nodejs \
+  && adduser -S nextjs -u 1001 \
+  && fc-cache -f
 
 # Copy only the necessary files for running the application
 # Static files for serving

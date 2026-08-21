@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { maindb } from '@/lib/db';
 import { scientificFigureJob } from '@/lib/db/schema';
+import { getScientificFigureProviderConfig } from '@/lib/scientific-figures/config';
 import { createScientificFigureAssetUrl, generateScientificFigure } from '@/lib/scientific-figures/runner';
+import { debitSharedBalance, SharedBalanceError } from '@/lib/sub2api/database';
 
 export const runtime = 'nodejs';
 export const maxDuration = 360;
@@ -18,9 +20,6 @@ const figureSchema = z.object({
     z.string().trim().min(1).max(40),
   ]),
   size: z.enum(['2048x1152', '1536x1152', '1024x1024']).default('2048x1152'),
-  apiKey: z.string().trim().min(1).max(500),
-  baseUrl: z.string().url().max(500),
-  imageModel: z.string().trim().min(1).max(120).default('gpt-image-2'),
 });
 
 async function sessionFor(request: NextRequest) {
@@ -61,6 +60,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '请完整填写图题、背景描述和三个流程节点' }, { status: 400 });
   }
 
+  let provider: ReturnType<typeof getScientificFigureProviderConfig>;
+  try {
+    provider = getScientificFigureProviderConfig();
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : '科研绘图服务尚未配置' }, { status: 503 });
+  }
+
+  const remoteUserId = Number(session.user.id);
+  if (!Number.isSafeInteger(remoteUserId) || remoteUserId <= 0) {
+    return NextResponse.json({ error: '账号标识无效' }, { status: 400 });
+  }
+
   const [requestedWidth, requestedHeight] = input.size.split('x').map(Number);
   const [job] = await maindb
     .insert(scientificFigureJob)
@@ -87,9 +98,15 @@ export async function POST(request: NextRequest) {
       backgroundPrompt: input.backgroundPrompt,
       stageLabels: input.stageLabels,
       requestedSize: input.size,
-      imageApiKey: input.apiKey,
-      imageBaseUrl: input.baseUrl,
-      imageModel: input.imageModel,
+      imageApiKey: provider.imageApiKey,
+      imageBaseUrl: provider.baseUrl,
+      imageModel: provider.imageModel,
+    });
+    await debitSharedBalance({
+      userId: remoteUserId,
+      amount: 1,
+      idempotencyKey: `figure:${job.id}:debit`,
+      notes: `Scientific figure generation ${job.id}`,
     });
     await maindb
       .update(scientificFigureJob)
@@ -117,6 +134,7 @@ export async function POST(request: NextRequest) {
       .update(scientificFigureJob)
       .set({ status: 'failed', errorMessage: message.slice(0, 2000), updatedAt: new Date() })
       .where(eq(scientificFigureJob.id, job.id));
-    return NextResponse.json({ jobId: job.id, status: 'failed', error: message }, { status: 502 });
+    const status = cause instanceof SharedBalanceError ? cause.status : 502;
+    return NextResponse.json({ jobId: job.id, status: 'failed', error: message }, { status });
   }
 }

@@ -3,6 +3,7 @@ import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
 export const clientEnv = createEnv({
+  skipValidation: process.env.SKIP_ENV_VALIDATION === '1',
   client: {
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1),
     NEXT_PUBLIC_BUILD_SERVER_URL: z.string().url().optional(),
