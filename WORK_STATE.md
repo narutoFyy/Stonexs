@@ -2,11 +2,11 @@
 
 ## Status
 
-`in_progress`
+`complete`
 
 ## Current Task
 
-Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then verify the Linux container and public route.
+Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then verify the Linux container and public route. Completed on 2026-08-21.
 
 ## Rules
 
@@ -36,7 +36,7 @@ Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then v
 | T12 | AI-assisted scientific figure workflow | done | Authenticated prompt-polish API plus a two-step UI from short research idea to editable figure bundle. |
 | T13 | Deploy figure workflow to .189:18083 | done | The verified image is deployed on `.189:18083` with the existing Sub2API environment and data-disk storage. |
 | T14 | Stabilize figure authentication and Linux deployment | done | Login redirects directly to `/figures`; the page does not load the legacy AI/chat action graph; Linux-native dependencies and my-image-sci scripts are present; existing services remain healthy. |
-| T15 | Deploy built-in SCI figure prompt | in_progress | The fixed SCI style prompt is committed, pushed, rebuilt in a Linux container, and verified on `.189:18083`. |
+| T15 | Deploy built-in SCI figure prompt | done | The fixed SCI style prompt is committed, pushed, rebuilt in a Linux container, and verified on `.189:18083`. |
 
 ## Completed Task
 
@@ -69,7 +69,7 @@ Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then v
 - Rollback: remove the new search route/component and restore the root `ChatInterface` composition; no database or external state changes.
 - Verification: direct API query returned HTTP 200 with merged provider results; empty query returned HTTP 400; `/scholar?q=泊车` rendered 30 result cards with zero horizontal overflow; `/assistant` loaded with zero page errors; app/test typechecks, 17 tests, and production build passed.
 
-## Active Task
+## Completed Task
 
 ### T14
 
@@ -85,7 +85,7 @@ Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then v
 - Dependencies: existing `.128` PostgreSQL, local `.189` Sub2API, user-provided image API credentials at request time, and existing data-disk mount.
 - Rollback: restore the previous `/opt/shitou-academic/current` symlink and service unit; no database or persistent-user-data rollback required.
 
-## Active Task
+## Completed Task
 
 ### T15
 
@@ -96,6 +96,7 @@ Deploy the built-in SCI figure prompt changes to GitHub and `.189:18083`, then v
 - Acceptance: GitHub contains the deployment commit; the Linux image builds without Windows native modules; the service remains active on `.189:18083`; `/figures` redirects anonymously; `/api/figures/prompt` remains protected; the fixed SCI prompt is present in the deployed image.
 - Focused verification: local typechecks/build, GitHub push confirmation, remote image digest and service status, direct HTTP route probes, and container log/resource checks.
 - Rollback: restore the previous `shitou-academic:production` image and restart `shitou-academic-figures`; no database or persistent-user-data rollback required.
+- Verification: commits `064af1d` and `2eea34d` are pushed to `origin/graduate-workflow`; Linux image `shitou-academic:20260821-sci-prompt-2eea34d` built as `ac781b6c3560`; candidate `sharp`, `my-image-sci`, `307` figure redirect, and `401` prompt authorization checks passed; production is active on `.189:18083`.
 
 ## File Access Requests
 
@@ -127,3 +128,6 @@ Not applicable in `state-main` mode.
 - 2026-08-20: user resumed deployment repair; production logs proved Windows-native optional dependencies were shipped into Linux/Alpine, `/figures` loaded the legacy chat action graph and Baseten provider, and the configured my-image-sci directory was absent inside the container. `T14` moved `pending -> ready -> implementing`.
 - 2026-08-21: Linux/Alpine image `a5fa0f2d4371` built successfully with resource limits and build-only provider placeholders. Candidate checks proved `sharp`, the `my-image-sci` mount, storage writes, unauthenticated redirects, and API authorization behavior.
 - 2026-08-21: production switched to `shitou-academic:production` on `.189:18083`; public `/figures` returns `307` to `/sign-in?redirect=%2Ffigures`, Sub2API and gift-chat remained active, and target logs contained no native-module or OOM errors. `T7`, `T13`, and `T14` moved to `done`; work status moved to `complete`.
+- 2026-08-21: `T15` commit `064af1d` replaced invalid build URL placeholders; the first Linux candidate exposed CRLF reintroduced by Windows `core.autocrlf` during `git archive`.
+- 2026-08-21: `T15` commit `2eea34d` added `.gitattributes` LF rules for deployment files; the release was generated with `git -c core.autocrlf=false archive`, uploaded to `/opt/shitou-academic/builds/20260821-sci-prompt-2eea34d`, and matched local SHA-256 `8718ee628979b09e30d1333e383a5a8a70391858ca8aa8380ce0063b24299391`.
+- 2026-08-21: production now runs image `sha256:ac781b6c3560ce2cb952eab520800783867527599dc7426f934c25ac94996412`; rollback image `sha256:5b16e364d3f12919cc5eb95af7fd6c5aae92839a9d979c4abb86a496fdcf81a4` is tagged `shitou-academic:rollback-20260821-5b16e364`. `shitou-academic-figures`, Sub2API, and gift-chat remain active; production route probes passed.
